@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>背英文單字</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+        #input-page, #practice-page {
+            width: 90%;
+            max-width: 500px;
+            background: white;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            text-align: center;
+        }
+        textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            background-color: #007BFF;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #word-display {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        #answer-display {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #007BFF;
+        }
+        select {
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div id="input-page">
+        <h1>輸入要練習的單字</h1>
+        <textarea id="word-input" rows="10" cols="30" placeholder="每行一個單字"></textarea>
+        <button onclick="saveWords()">儲存並進入練習模式</button>
+    </div>
+
+    <div id="practice-page" style="display:none;">
+        <h1>練習模式</h1>
+        <select id="voice-select"></select>
+        <div id="word-display"></div>
+        <button onclick="playWord()">🔊 播放單字</button>
+        <button onclick="showAnswer()">看答案</button>
+        <div id="answer-display" style="display:none;"></div>
+        <button onclick="nextWord()">下一題</button>
+    </div>
+
+    <button onclick="reset()">重製</button>
+
+    <script>
+        let words = [];
+        let currentWordIndex = 0;
+        let voices = [];
+
+        function populateVoiceList() {
+            voices = speechSynthesis.getVoices();
+            const voiceSelect = document.getElementById('voice-select');
+            voiceSelect.innerHTML = '';
+            voices.forEach((voice, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = `${voice.name} (${voice.lang})`;
+                voiceSelect.appendChild(option);
+            });
+
+            // 設置預設語音為 "Google 國語 (台灣) (zh-TW)"
+            const defaultVoiceIndex = voices.findIndex(voice => voice.name === "Google 國語 (台灣)" && voice.lang === "zh-TW");
+            if (defaultVoiceIndex !== -1) {
+                voiceSelect.value = defaultVoiceIndex;
+            }
+        }
+
+        function saveWords() {
+            const input = document.getElementById('word-input').value;
+            words = input.split('\n').map(word => word.trim()).filter(word => word.length > 0);
+            document.cookie = `words=${JSON.stringify(words)}; path=/`;
+            startPractice();
+        }
+
+        function startPractice() {
+            document.getElementById('input-page').style.display = 'none';
+            document.getElementById('practice-page').style.display = 'block';
+            currentWordIndex = 0;
+            showNextWord();
+        }
+
+        function showNextWord() {
+            if (currentWordIndex >= words.length) {
+                alert('所有題目已完成');
+                reset();
+                return;
+            }
+            const word = words[currentWordIndex];
+            document.getElementById('word-display').innerText = `${word.length} 個字`;
+            document.getElementById('answer-display').style.display = 'none';
+            document.getElementById('answer-display').innerText = word;
+        }
+
+        function playWord() {
+            const word = words[currentWordIndex];
+            const utterance = new SpeechSynthesisUtterance(word);
+            const selectedVoiceIndex = document.getElementById('voice-select').value;
+            utterance.voice = voices[selectedVoiceIndex];
+            speechSynthesis.speak(utterance);
+        }
+
+        function showAnswer() {
+            document.getElementById('answer-display').style.display = 'block';
+        }
+
+        function nextWord() {
+            currentWordIndex++;
+            if (currentWordIndex >= words.length) {
+                alert('所有題目已完成');
+                reset();
+            } else {
+                showNextWord();
+            }
+        }
+
+        function reset() {
+            document.getElementById('input-page').style.display = 'block';
+            document.getElementById('practice-page').style.display = 'none';
+            document.getElementById('word-input').value = '';
+            words = [];
+            currentWordIndex = 0;
+            document.cookie = 'words=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        }
+
+        window.onload = function() {
+            const cookie = document.cookie.split('; ').find(row => row.startsWith('words='));
+            if (cookie) {
+                words = JSON.parse(cookie.split('=')[1]);
+                startPractice();
+            }
+            populateVoiceList();
+            if (speechSynthesis.onvoiceschanged !== undefined) {
+                speechSynthesis.onvoiceschanged = populateVoiceList;
+            }
+        }
+    </script>
+</body>
+</html>
